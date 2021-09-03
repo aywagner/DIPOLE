@@ -64,14 +64,14 @@ class WassersteinDistance(nn.Module):
         # Initialize cost
         cost = torch.tensor(0., requires_grad=True)
         # Note these calculations are using L1 ground metric on upper half-plane
-        is_unpaired_1 = (matching[:, 0] == -1)
+        is_unpaired_1 = (matching[:, 1] == -1)
         if np.any(is_unpaired_1):
             unpaired_1_idx = matching[is_unpaired_1, 0]
             cost = cost + torch.sum(torch.pow(dgm1[unpaired_1_idx, 1] - dgm1[unpaired_1_idx, 0], self.p))
-        is_unpaired_2 = (matching[:, 1] == -1)
+        is_unpaired_2 = (matching[:, 0] == -1)
         if np.any(is_unpaired_2):
             unpaired_2_idx = matching[is_unpaired_2, 1]
-            cost = cost + torch.sum(torch.pow(dgm2[unpaired_2_idx, 1] - dgm1[unpaired_2_idx, 0], self.p))
+            cost = cost + torch.sum(torch.pow(dgm2[unpaired_2_idx, 1] - dgm2[unpaired_2_idx, 0], self.p))
         is_paired = (~is_unpaired_1 & ~is_unpaired_2)
         if np.any(is_paired):
             paired_1_idx, paired_2_idx = matching[is_paired, 0], matching[is_paired, 1]
@@ -83,12 +83,25 @@ class WassersteinDistance(nn.Module):
 
 if __name__ == '__main__':
     import numpy as np
-    thetas = np.linspace(0, 2*np.pi, 100)
-    ptcloud = np.zeros((100, 2))
-    ptcloud[:, 0], ptcloud[:, 1] = np.cos(thetas), np.sin(thetas)
+    # Testing RipsPersistenceDistance
+    ptcloud = np.random.uniform(size=(100, 2))
     x = torch.tensor(ptcloud, requires_grad=True)
     rips = RipsPersistenceDistance((0, 1))
     dgms = rips(torch.cdist(x, x))
     for dim in np.arange(len(dgms)):
         print(dgms[dim])
-        
+    ripscomplex = gd.RipsComplex(points=ptcloud)
+    st = ripscomplex.create_simplex_tree(max_dimension=2)
+    st.persistence()
+    dgm1_gd = st.persistence_intervals_in_dimension(1)
+    print(wasserstein_distance(dgms[1].detach().numpy(), dgm1_gd))
+    # Testing WassersteinDistance
+    dgmx = dgms[0]
+    ptcloud = np.random.uniform(size=ptcloud.shape)
+    x = torch.tensor(ptcloud, requires_grad=True)
+    dgms = rips(torch.cdist(x, x))
+    dgmy = dgms[0]
+    wass = WassersteinDistance(2)
+    print('custom Wasserstein: ' + str(wass(dgmx, dgmy)))
+    dgmx_np, dgmy_np = dgmx.detach().numpy(), dgmy.detach().numpy()
+    print('GUDHI Wasserstein: ' + str(wasserstein_distance(dgmx_np, dgmy_np, matching=False, order=2, internal_p=1) ** 2))
