@@ -4,6 +4,8 @@ import torch
 import torch.nn as nn
 from losses import LocalMetricRegularizer, DistTopLoss, LocalMetricRegularizerMask
 
+from joblib import Parallel, delayed
+
 
 class onlyLMRNet(nn.Module):
     def __init__(self, dist_mat, edge_mask):
@@ -48,6 +50,9 @@ class DimensionReductionNetMask(nn.Module):
         metric_loss = self.metric_loss(embedding)
         # Compute the average topological loss
         top_loss = torch.tensor(0., requires_grad=True)
-        for _ in range(self.num_subsets):
-            top_loss = top_loss + self.top_loss(embedding)
+        top_losses = Parallel(n_jobs=-1)(
+            delayed(self.top_loss)(embedding) for _ in range(self.num_subsets)
+        )
+        for i in range(self.num_subsets):
+            top_loss = top_loss + top_losses[i]
         return self.alpha * metric_loss + (1-self.alpha) * (top_loss / self.num_subsets)        
