@@ -94,4 +94,4 @@ class DimensionReductionNetMask(nn.Module):
             top_loss = top_loss + top_losses[i]
 
         return self.alpha * metric_loss + \
-               (1-self.alpha) * (top_loss / self.num_subsets)
+            (1-self.alpha) * (top_loss / self.num_subsets)
