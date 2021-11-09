@@ -24,7 +24,7 @@ class RipsPersistenceDistance(nn.Module):
         # Compute persistence from distance matrix.
         idx = ripser_parallel(input.detach().numpy(),
                               metric="precomputed",
-                              maxdim=max(self.hom_dims)
+                              maxdim=max(self.hom_dims),
                               return_generators=True)["gens"]
         dgms = []
         for hom_dim in self.hom_dims:
