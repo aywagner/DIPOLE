@@ -1,11 +1,10 @@
 # Collection of pytorch modules for persistence related calculations
 
-from gph import ripser_parallel
 import gudhi as gd
-from gudhi.wasserstein import wasserstein_distance
 import torch
 import torch.nn as nn
-import numpy as np
+from gph import ripser_parallel
+from gudhi.wasserstein import wasserstein_distance
 
 
 class RipsPersistenceDistance(nn.Module):
@@ -33,14 +32,16 @@ class RipsPersistenceDistance(nn.Module):
                     dgms.append(torch.zeros((0, 2), requires_grad=True))
                 else:
                     verts = torch.from_numpy(idx[0]).type(torch.LongTensor)
-                    dgm = torch.stack((input[verts[:, 0], verts[:, 0]], input[verts[:, 1], verts[:, 2]]), 1)
+                    dgm = torch.stack((input[verts[:, 0], verts[:, 0]],
+                                       input[verts[:, 1], verts[:, 2]]), 1)
                     dgms.append(dgm)
             if hom_dim != 0:
                 if len(idx[1]) == 0:
                     dgms.append(torch.zeros((0, 2), requires_grad=True))
                 else:
                     verts = torch.from_numpy(idx[1][hom_dim - 1]).type(torch.LongTensor)
-                    dgm = torch.stack((input[verts[:, 0], verts[:, 1]], input[verts[:, 2], verts[:, 3]]), 1)
+                    dgm = torch.stack((input[verts[:, 0], verts[:, 1]],
+                                       input[verts[:, 2], verts[:, 3]]), 1)
                     dgms.append(dgm)
         return dgms
      
