@@ -14,5 +14,6 @@ dependencies:
   - scikit-learn
   - tqdm
   - pip:
+    - giotto-ph>=0.2.0
     - gudhi==3.4.0
     - umap-learn==0.5.1

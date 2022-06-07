@@ -1,5 +1,6 @@
 # Collection of pytorch modules for persistence related calculations
 
+from gph import ripser_parallel
 import gudhi as gd
 from gudhi.wasserstein import wasserstein_distance
 import torch
@@ -21,10 +22,10 @@ class RipsPersistenceDistance(nn.Module):
 
     def forward(self, input):
         # Compute persistence from distance matrix.
-        rips = gd.RipsComplex(distance_matrix=input.detach().numpy())
-        st = rips.create_simplex_tree(max_dimension=max(self.hom_dims) + 1)
-        st.persistence()
-        idx = st.flag_persistence_generators()
+        idx = ripser_parallel(input.detach().numpy(),
+                              metric="precomputed",
+                              maxdim=max(self.hom_dims),
+                              return_generators=True)["gens"]
         dgms = []
         for hom_dim in self.hom_dims:
             if hom_dim == 0:
