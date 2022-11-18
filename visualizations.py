@@ -9,8 +9,8 @@ data = np.loadtxt('data/mammoth.txt')
 col = data[:, 1]
 embedding_dipole = drmethods.DIPOLE_mask_method(high_ptcloud=data,
                                                 target_dim=2,
-                                                lmr_edges=3,
-                                                alpha=0.1,
+                                                lmr_edges=5,
+                                                alpha=0.001, # TODO: 5 lmr and alpha 0.001?
                                                 k=64,
                                                 lr=1.0)
 embedding_lmr = drmethods.LMR_method(high_ptcloud=data,
@@ -35,18 +35,19 @@ ax_TSNE = fig.add_subplot(2,2,4)
 ax_TSNE.scatter(embedding_tsne[:, 0], embedding_tsne[:, 1], alpha=0.5, c=col)
 ax_TSNE.set_title("t-SNE", fontsize = 30)
 plt.savefig('figures/mammoth.png', format='png')
+exit()
 
 # Brain
 data = np.loadtxt('data/brain.txt')
 col = data[:, 2]
 embedding_dipole = drmethods.DIPOLE_mask_method(high_ptcloud=data,
                                                 target_dim=2,
-                                                lmr_edges=3,
-                                                alpha=0.1,
+                                                lmr_edges=5,
+                                                alpha=0.001,
                                                 k=64,
                                                 lr=1.0)
 embedding_lmr = drmethods.LMR_method(high_ptcloud=data,
-                                     target_dim=2,
+                                     target_dim=2,  
                                      lmr_edges=10,
                                      lr=1.0)
 embedding_umap = drmethods.umap_method(high_ptcloud=data,
@@ -67,6 +68,7 @@ ax_UMAP = fig.add_subplot(2,2,4)
 ax_UMAP.scatter(embedding_umap[:, 0], embedding_umap[:, 1], alpha=0.5, c=col)
 ax_UMAP.set_title("UMAP", fontsize = 30)
 plt.savefig('figures/brain.png', format='png')
+
 
 # Swiss roll with holes
 data = np.loadtxt('data/swisshole.txt')

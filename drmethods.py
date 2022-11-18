@@ -72,7 +72,7 @@ def DIPOLE_mask_method(high_ptcloud, target_dim=3, lmr_edges=3, alpha=0.1, k=32,
                                     hom_weights=(0.5,0.5), 
                                     k=k, 
                                     num_subsets=1,
-                                    p=2)
+                                    p=1)
     opt = torch.optim.Adam([embedding], lr=lr)
     scheduler = LambdaLR(opt,[lambda epoch: 1000./(1000+epoch)]) 
     for _ in range(2500):

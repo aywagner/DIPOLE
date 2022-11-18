@@ -94,6 +94,12 @@ name = 'mammoth'
 data = np.loadtxt('data/mammoth.txt')
 high_distmat = knn_dist_mat(data, 5)
 target_dim = 2
+
+# FIXME: Remove following, just for testing
+dipole_metrics(data, high_distmat, target_dim, name)
+exit()
+
+
 all_metrics(data, high_distmat, target_dim=target_dim, name=name)
 compare_metrics(name)
 

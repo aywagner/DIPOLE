@@ -17,18 +17,26 @@ class LocalMetricRegularizer(nn.Module):
     Args:
         dist_func: function accepting n x 2 arrays and 
         returning distances as tensors
-        edge_indices: n x 2 tensor of edges indices
+        edge_indices: n x 2 tensor with edge indices
+        weights: length n tensor with edge weights. If none, all weights are 1. 
+        Defaults to None.
     """
-    def __init__(self, dist_func, edge_indices):
+    def __init__(self, dist_func, edge_indices, weights=None):
         super(LocalMetricRegularizer, self).__init__()
+        assert edge_indices.shape[0] > 0
         self.edge_indices = edge_indices
-        self.small_dists = dist_func(edge_indices)
+        self.small_dists = dist_func(self.edge_indices)
+        # TODO: Refactor to make weights adjustable during training?
+        if weights is not None:
+            self.weights = weights
+        else:
+            self.weights = torch.ones(edge_indices.shape[0])
          
     def forward(self, input):
         input_diffs = input[self.edge_indices[:, 0], :] - \
             input[self.edge_indices[:, 1], :]
         input_small_dists = torch.linalg.norm(input_diffs, dim=1)
-        return ((self.small_dists - input_small_dists)**2).sum()
+        return torch.dot(self.weights, (self.small_dists - input_small_dists)**2)
 
 
 def _compute_pers_gens_and_matchings(dom_distmat_np, codom_distmat_np, hom_dims, p):
@@ -79,17 +87,18 @@ class DIPOLELoss(nn.Module):
         num_subsets: number of subsets to compute, i.e. batch size
         p: order of Wasserstein distance
     """
-    def __init__(self, dist_func, edge_indices, alpha,
+    def __init__(self, dist_func, edge_indices, weights, alpha,
                  hom_dims, hom_weights, k, num_subsets, p):
         super(DIPOLELoss, self).__init__()
         self.dist_func = dist_func
-        self.metric_loss = LocalMetricRegularizer(dist_func, edge_indices)
+        self.metric_loss = LocalMetricRegularizer(dist_func, edge_indices, weights)
         self.alpha = alpha
         self.hom_dims = hom_dims
         self.hom_weights = hom_weights
         self.k = k
         self.num_subsets = num_subsets
         self.p = p
+        # TODO: Overwrite init to include sphere diagrams
 
     def _create_submatrices(self, embedding):
         # Randomly sample k points.
@@ -231,6 +240,7 @@ class EarlyStopping():
 def DIPOLE(dist_func, 
            embedding, 
            edge_indices,
+           weights,
            num_subsets,
            alpha=0.1, 
            k=32, 
@@ -262,6 +272,7 @@ def DIPOLE(dist_func,
     """
     net = DIPOLELoss(dist_func=dist_func,
                      edge_indices=edge_indices,
+                     weights=weights,
                      alpha=alpha, 
                      hom_dims=(0,1), 
                      hom_weights=(0.5,0.5), 
@@ -334,14 +345,57 @@ def DietDIPOLE(high_ptcloud,
     """
     embedding = Isomap(n_components=target_dim)
     embedding = torch.tensor(embedding.fit_transform(high_ptcloud),
-                             requires_grad=True)
-    dist_mat = torch.tensor(knn_dist_mat(data=high_ptcloud, k=m))
+                             requires_grad=True,
+                             dtype=torch.float32)
+    dist_mat = torch.tensor(knn_dist_mat(data=high_ptcloud, k=m), dtype=torch.float32)
     edge_indices = torch.tensor(kneighbors_graph(high_ptcloud, 
                                                  lmr_edges, 
                                                  mode='connectivity').nonzero()).T.type(torch.LongTensor)
     return DIPOLE(dist_func=lambda x: dist_mat[x[:, 0], x[:, 1]],
                   embedding=embedding,
                   edge_indices=edge_indices,
+                  weights=torch.ones(edge_indices.shape[0]),
+                  num_subsets=num_subsets,
+                  alpha=alpha,
+                  k=k,
+                  lr=lr,
+                  n_iterations=n_iterations,
+                  patience=patience,
+                  min_rel_change=min_rel_change)
+    
+    
+def DietDIPOLE2(high_ptcloud, 
+               target_dim, 
+               num_subsets,
+               tau = 100.,
+               alpha=1, 
+               k=32, 
+               m=5, 
+               lr=0.1, 
+               n_iterations=2500, 
+               patience=10, 
+               min_rel_change=0.01):
+    
+    embedding = Isomap(n_components=target_dim)
+    
+    # from sklearn.random_projection import GaussianRandomProjection
+    # embedding = GaussianRandomProjection(n_components=target_dim)
+    
+    embedding = torch.tensor(embedding.fit_transform(high_ptcloud),
+                             requires_grad=True,
+                             dtype=torch.float32)
+    dist_mat = torch.tensor(knn_dist_mat(data=high_ptcloud, k=m), dtype=torch.float32)
+    
+    # non-uniform weights
+    weights = torch.exp(-(dist_mat ** 2) / tau)
+    # weights = dist_mat
+    top_n = torch.argsort(-weights, dim=1) < 10
+    edge_indices = torch.nonzero(top_n)
+    sparse_weights = weights[edge_indices[:, 0], edge_indices[:, 1]]
+    return DIPOLE(dist_func=lambda x: dist_mat[x[:, 0], x[:, 1]],
+                  embedding=embedding,
+                  edge_indices=edge_indices,
+                  weights=sparse_weights,
                   num_subsets=num_subsets,
                   alpha=alpha,
                   k=k,
@@ -355,10 +409,10 @@ if __name__=='__main__':
     import matplotlib.pyplot as plt
     data = np.loadtxt('data/mammoth.txt')
     col = data[:, 1]
-    embedding = DietDIPOLE(high_ptcloud=data,
+    embedding = DietDIPOLE2(high_ptcloud=data,
                            target_dim=2,
                            num_subsets=2,
-                           lmr_edges=5,
+                           tau=1.,
                            alpha=0.001,
                            k=64,
                            m=5,
